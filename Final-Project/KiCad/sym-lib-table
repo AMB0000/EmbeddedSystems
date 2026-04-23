@@ -1,0 +1,5 @@
+(sym_lib_table
+  (version 7)
+  (lib (name "SLW-66527511-SMT-TR")(type "KiCad")(uri "/Users/alibehbehanii/Desktop/EMBSYS/components/SPDT_Slide_Switch/SLW-66527511-SMT-TR.kicad_sym")(options "")(descr ""))
+  (lib (name "ESP8266-01_ESP-01")(type "KiCad")(uri "/Users/alibehbehanii/Desktop/EMBSYS/components/ESP8266-01_ESP-01/ESP8266-01_ESP-01.kicad_sym")(options "")(descr ""))
+)

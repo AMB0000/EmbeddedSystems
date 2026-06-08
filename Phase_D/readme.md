@@ -1,7 +1,9 @@
 # Phase D — Final Documentation
 
 **Project:** Two-wheel self-balancing robot
+
 **Class:** Embedded Systems, University of Denver
+
 **Author:** Ali Behbehani
 
 ## What I built

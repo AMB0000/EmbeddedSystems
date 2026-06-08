@@ -22,17 +22,25 @@ Everything is held together with M2 hardware.
 
 Two-layer board, designed in KiCad 10. I assembled it by hand with hot air and a soldering iron, which meant a few joints needed rework after the first power-on (you can see the touched-up spots in the side photo).
 
-The board has:
-- An STM32 as the main MCU, programmed over SWD with an ST-Link
-- An IMU on I²C for the tilt reading
-- A dual H-bridge to drive both motors
-- A buck regulator to step the battery down to 3.3V for the logic
-- Two tactile buttons for reset and boot
-- JST connectors for the motors, the battery, and the IMU
+The main components:
 
-The battery is two 18650 Li-ions in series, about 7.4V nominal. The motors run straight off the battery rail through the driver. There's no on-board charger — I just pull the cells and charge them externally.
+- **MCU:** STM32F401RBTx — 84 MHz Cortex-M4, LQFP-64. Programmed over SWD with an ST-Link.
+- **Motor driver:** TB6612FNG — dual H-bridge, up to 1.2 A per channel, separate PWM and direction pins.
+- **IMU:** MPU-6050 on a breakout board, plugged into the on-board connector (CONN_MPU6050). I²C1 at the default 0x68 address. There's also an interrupt line wired back to PC13.
+- **Regulators:** LD1117S33TR (3.3 V) and LD1117S50TR (5 V) LDOs in SOT-223.
+- **Clock:** 16 MHz crystal (Y3) on OSC_IN/OSC_OUT.
+- **USB-C:** USB 2.0 receptacle with a USBLC6-2SC6 for ESD protection. USB DM/DP are wired to the STM32's USB FS pins so the board can be powered or talked to over USB-C.
+- **Status LEDs:** USB, 3V3, 5V, user LED, plus a WS2812B addressable LED on a TIM5 PWM pin.
+- **Protection:** PTC fuse (F1) on the input rail.
+- **Buttons:** reset (SW2), boot0, regulator switch.
 
-> Fill in the exact part numbers (STM32 variant, motor driver, buck IC) from the KiCad BOM in `Phase_B_Final_Board/FINAL_PHASE_B/`.
+The board also has connectors I designed in but didn't end up using for this build:
+
+- **ENCODER_CONN** — wheel encoder header (quadrature on PB6/PB7). My TT gearmotors don't have encoders, so this never got hooked up.
+- **MT6701_CONN** — connector for an MT6701 magnetic angle sensor on I²C3.
+- **ESP_Conn** — UART link to an ESP32 (USART1 TX/RX) for future wireless telemetry.
+
+Power: two 18650 Li-ions in series, about 7.4 V nominal, into the battery JST. From there the 5 V LDO feeds the motor driver's logic side and the 3.3 V LDO feeds the MCU and IMU. The motors run directly off the battery rail through the H-bridge. No on-board charger — cells are charged externally.
 
 ## The spacer story
 
@@ -46,7 +54,7 @@ So I designed a tiny custom spacer and 3D-printed four of them: 2.4mm inner diam
 
 I used STM32CubeIDE and the ST HAL. CubeMX generated the peripheral init. I program the chip over SWD with an ST-Link.
 
-The peripherals I'm actually using are I²C1 for the IMU, two timer channels for the motor PWMs, GPIOs for the H-bridge direction pins and the button/LED, and SysTick to keep the control loop running at a fixed rate.
+The peripherals I'm actually using are I²C1 for the IMU (pins PB8/PB9 on the connector, internally PB6/PB7 on the chip), TIM2 channels 1 and 2 for the two motor PWMs, GPIOs for the H-bridge direction pins and standby line, GPIO for the user LED, and SysTick to keep the control loop running at a fixed rate. There's also a WS2812B on TIM5_CH1 that I haven't done much with yet.
 
 The control loop runs at 200 Hz. Every 5ms it does this:
 
@@ -139,25 +147,90 @@ The project was broken into four phases over the quarter:
 
 ## Pinout
 
-This is the mapping from STM32 pins to what they connect to on the board. **Fill in the actual pins from your KiCad schematic** — I don't know the exact ones you used. Below is the structure to copy.
+This is the real pinout pulled from the KiCad project (`FINAL_PHASE_B__1_.kicad_pcb`). The STM32F401RBTx is reference U1.
 
-| STM32 pin | Function | Connects to |
+**Programming / debug**
+
+| Pin | STM32 function | Net |
 | --- | --- | --- |
-| PB6 | I²C1 SCL | IMU SCL |
-| PB7 | I²C1 SDA | IMU SDA |
-| PA0 | TIM2_CH1 (PWM) | Motor driver, left PWM |
-| PA1 | TIM2_CH2 (PWM) | Motor driver, right PWM |
-| PA2 | GPIO out | Motor driver, left IN1 |
-| PA3 | GPIO out | Motor driver, left IN2 |
-| PA4 | GPIO out | Motor driver, right IN1 |
-| PA5 | GPIO out | Motor driver, right IN2 |
-| PA13 | SWDIO | ST-Link |
-| PA14 | SWCLK | ST-Link |
-| PC13 | GPIO in (pull-up) | User button SW2 |
-| PC14 | GPIO out | Status LED |
-| NRST | Reset | Reset button SW1 |
+| 46 | SWDIO | SWDIO |
+| 49 | SWCLK | SWCLK |
+| 7 | NRST | RESET (tied to reset button) |
+| 60 | BOOT0 | BOOT0 |
 
-> To find the real pinout: open `FINAL_PHASE_B.kicad_sch` in KiCad, click on the STM32 symbol, and copy each labeled net off its pins.
+**Clock**
+
+| Pin | STM32 function | Net |
+| --- | --- | --- |
+| 5 | OSC_IN | OSCIN (16 MHz crystal) |
+| 6 | OSC_OUT | OSCOUT (16 MHz crystal) |
+
+**IMU — I²C1 + interrupt** (MPU-6050 on breakout)
+
+| Pin | STM32 function | Net |
+| --- | --- | --- |
+| 61 | I2C1_SCL | IMU_SCL |
+| 62 | I2C1_SDA | IMU_SDA |
+| 2 | PC13 | IMU_INT |
+
+**Motor driver — TB6612FNG**
+
+| Pin | STM32 function | Net | Role |
+| --- | --- | --- | --- |
+| 15 | TIM2_CH2 | MD_PWMA | Motor A speed (PWM) |
+| 17 | PA3 | MD_AIN1 | Motor A direction 1 |
+| 16 | PA2 | MD_AIN2 | Motor A direction 2 |
+| 21 | TIM2_CH1 | MD_PWMB | Motor B speed (PWM) |
+| 22 | PA6 | MD_BIN1 | Motor B direction 1 |
+| 23 | PA7 | MD_BIN2 | Motor B direction 2 |
+| 20 | PA4 | MD_STBY | Driver enable (hold high to enable) |
+
+**Wheel encoders (quadrature) — not used in this build**
+
+| Pin | STM32 function | Net |
+| --- | --- | --- |
+| 58 | PB6 | ENC_B |
+| 59 | PB7 | ENC_A |
+
+**MT6701 magnetic angle sensor — I²C3 (not used in this build)**
+
+| Pin | STM32 function | Net |
+| --- | --- | --- |
+| 40 | I2C3_SDA | MT_SDA |
+| 41 | I2C3_SCL | MT_SCL |
+| 37 | PC6 | MT_PWM |
+
+**ESP32 link — USART1 (not used in this build)**
+
+| Pin | STM32 function | Net |
+| --- | --- | --- |
+| 42 | USART1_TX | ESP_RX |
+| 43 | USART1_RX | ESP_TX |
+
+**USB-C — USB FS**
+
+| Pin | STM32 function | Net |
+| --- | --- | --- |
+| 44 | USB_OTG_FS_DM | ESD_D− |
+| 45 | USB_OTG_FS_DP | ESD_D+ |
+
+**LEDs**
+
+| Pin | STM32 function | Net |
+| --- | --- | --- |
+| 14 | TIM5_CH1 | WS_DIN (WS2812B addressable LED) |
+| 27 | PB1 | USER_LED |
+
+**Power**
+
+| Pin | Function | Net |
+| --- | --- | --- |
+| 13 | VREF+ | +3.3V |
+| 19, 32, 48, 64 | VDD | +3.3V |
+| 12 | VSSA | GND |
+| 18, 31, 47, 63 | VSS | GND |
+| 30 | VCAP1 | Internal cap |
+| 1 | VBAT | Tied off (no battery backup used) |
 
 ## Cost breakdown
 
@@ -166,10 +239,15 @@ Rough numbers from what I spent. These are USD and approximate.
 | Item | Qty | Unit | Subtotal |
 | --- | --- | --- | --- |
 | Custom PCB (JLCPCB, 2-layer, 5 pcs) | 1 order | ~$5 | $5 |
-| STM32 MCU | 1 | ~$3 | $3 |
-| IMU (MPU-6050 or similar) | 1 | ~$3 | $3 |
-| Dual H-bridge motor driver | 1 | ~$2 | $2 |
-| Buck regulator + passives | 1 set | ~$3 | $3 |
+| STM32F401RBTx (LQFP-64) | 1 | ~$5 | $5 |
+| MPU-6050 breakout | 1 | ~$3 | $3 |
+| TB6612FNG motor driver | 1 | ~$2 | $2 |
+| LD1117S33TR + LD1117S50TR LDOs | 2 | ~$1 | $2 |
+| USBLC6-2SC6 ESD protection | 1 | ~$1 | $1 |
+| USB-C receptacle (14-pin) | 1 | ~$1 | $1 |
+| WS2812B addressable LED | 1 | ~$0.50 | $0.50 |
+| 16 MHz crystal + load caps | 1 set | ~$1 | $1 |
+| Passives (R, C), LEDs, buttons, PTC fuse | mix | ~$5 | $5 |
 | JST connectors + headers | mix | ~$3 | $3 |
 | TT gearmotor + wheel | 2 | ~$4 | $8 |
 | 18650 Li-ion cell (2700 mAh) | 2 | ~$7 | $14 |
@@ -177,7 +255,7 @@ Rough numbers from what I spent. These are USD and approximate.
 | 3 mm clear acrylic sheet (laser cut at makerspace) | 1 | ~$5 | $5 |
 | M2 hardware (screws, nuts, metal standoffs) | mix | ~$5 | $5 |
 | PLA filament for spacers + motor brackets | small | ~$1 | $1 |
-| **Total** | | | **~$54** |
+| **Total** | | | **~$63** |
 
 > Update these with what you actually paid if you saved receipts (eFatoorah, hint hint).
 
@@ -228,13 +306,18 @@ Drop these in `Final-Project/images/` and they'll render below. The image names 
 
 ## References and datasheets
 
-- STM32 reference manual and datasheet — *link the exact part you used, e.g.* https://www.st.com/en/microcontrollers-microprocessors/stm32f103c8.html
+- STM32F401xB/xC datasheet — https://www.st.com/resource/en/datasheet/stm32f401rb.pdf
+- STM32F401 reference manual (RM0368) — https://www.st.com/resource/en/reference_manual/rm0368-stm32f401xbc-and-stm32f401xde-advanced-armbased-32bit-mcus-stmicroelectronics.pdf
+- TB6612FNG dual motor driver — https://www.sparkfun.com/datasheets/Robotics/TB6612FNG.pdf
 - MPU-6050 datasheet — https://invensense.tdk.com/wp-content/uploads/2015/02/MPU-6000-Datasheet1.pdf
-- TT gearmotor specs — https://www.adafruit.com/product/3777
+- LD1117 LDO datasheet — https://www.st.com/resource/en/datasheet/ld1117.pdf
+- USBLC6-2SC6 ESD protection — https://www.st.com/resource/en/datasheet/usblc6-2.pdf
+- WS2812B addressable LED — https://cdn-shop.adafruit.com/datasheets/WS2812B.pdf
+- TT gearmotor specs (Adafruit) — https://www.adafruit.com/product/3777
 - ST-Link V2 user manual — https://www.st.com/resource/en/user_manual/cd00262073.pdf
 - KiCad 10 docs — https://docs.kicad.org/
 - STM32CubeIDE — https://www.st.com/en/development-tools/stm32cubeide.html
-- Useful PID-for-balancing background — https://www.youtube.com/@PhilsLab (Phil's Lab, what this class draws on)
+- Phil's Lab (background on STM32 + PID for balancing) — https://www.youtube.com/@PhilsLab
 
 ## Repo layout
 

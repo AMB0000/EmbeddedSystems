@@ -78,21 +78,21 @@ Two-layer board designed in KiCad 10.
 
 ### Schematics
 
-![Schematic](Pictures_Documentation/schematic.png)
+![Schematic](schematic.png)
 
 ### Layout
 
-![PCB layout](Pictures_Documentation/pcb_layout.png)
+![PCB layout](pcb_layout.png)
 
 ### 3D Rendering
 
-![PCB 3D front](Pictures_Documentation/pcb_3d_front.png)
-![PCB 3D back](Pictures_Documentation/pcb_3d_back.png)
+![PCB 3D front](pcb_3d_front.png)
+![PCB 3D back](pcb_3d_back.png)
 
 ### Interactive BOM
 
-Open in browser: [iBOM](https://htmlpreview.github.io/?https://github.com/AMB0000/EmbeddedSystems/blob/main/Phase_D/iBOM/ibom.html)
-Source file: [Phase_D/iBOM/ibom.html](iBOM/ibom.html)
+Open in browser: [iBOM](https://htmlpreview.github.io/?https://github.com/AMB0000/EmbeddedSystems/blob/main/Phase_D/Pictures_Documentation/ibom.html)
+Source file: [ibom.html](ibom.html)
 
 ### Main components
 
@@ -131,8 +131,8 @@ Flashing procedure (USB DFU, no external programmer):
 
 The chassis is two tiers of 3 mm clear acrylic. The bottom deck holds the PCB and motors; the top deck holds the 18650 battery pack. A rear ball-caster acts as the third support for this stage. For simplicity, all chassis holes are M3 (Ø3.2 mm).
 
-![Chassis outline](Pictures_Documentation/chassis_outline.png)
-![Chassis dimensions](Pictures_Documentation/chassis_dimensions.png)
+![Chassis outline](chassis_outline.png)
+![Chassis dimensions](chassis_dimensions.png)
 
 Key dimensions: roughly 140 mm × 70 mm overall; PCB mounting holes on a 23.5 mm × 40.5 mm pattern; battery-holder holes on a 10 mm × 30 mm pattern; motor mount cutouts on each side.
 
@@ -184,12 +184,6 @@ After the first power-on, the rails were not all stable. The cause was a solder 
 
 The TT gearmotors have backlash and a deadband at low PWM, so small PID corrections do not move the wheels until the output is large, by which point the angle has already grown. The battery pack on the top deck also raises the center of mass, increasing the torque demand. With only an IMU and a single PID loop (no encoder velocity feedback), tight balance is difficult. The 3-wheel stage is the primary deliverable; balancing is the stretch goal.
 
-## GitHub Repository
-
-- [KiCad project (schematic, PCB, gerbers)](../Phase_B_Final_Board/FINAL_PHASE_B)
-- [Interactive BOM](iBOM/ibom.html)
-- [Pictures and screenshots](Pictures_Documentation)
-- [Firmware notes](Firmware_Tutorials)
 
 ## Pinout
 
@@ -229,6 +223,14 @@ Pulled from the KiCad project (`FINAL_PHASE_B__1_.kicad_pcb`). STM32F401RBTx is 
 - ESP8266EX — https://www.espressif.com/sites/default/files/documentation/0a-esp8266ex_datasheet_en.pdf
 - KiCad 10 docs — https://docs.kicad.org/
 - STM32CubeIDE — https://www.st.com/en/development-tools/stm32cubeide.html
+
+  ## GitHub Repository
+
+- [KiCad project (schematic, PCB, gerbers)](../../Phase_B_Final_Board/FINAL_PHASE_B)
+- [Interactive BOM](ibom.html)
+- [Pictures and screenshots](.)
+- [Firmware notes](../Firmware_Tutorials)
+
 ## AI Usage
 
 I have used AI to troubleshoot alot when running into a problem with code.  AI was used to help create Block Diagrams in this markdown file.

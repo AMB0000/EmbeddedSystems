@@ -6,9 +6,30 @@
 
 ## What I built
 
-A two-wheel robot that's supposed to balance itself like a tiny Segway. There's a custom PCB I designed in KiCad, a laser-cut acrylic chassis I cut at the makerspace, two TT gearmotors with rubber wheels, and a 2-cell 18650 pack on top. The STM32 on the board reads tilt from an IMU and runs a PID loop to keep itself upright.
+A two-wheel robot with a third ball-caster wheel for the demo, designed to eventually run as a self-balancing two-wheeler like a tiny Segway. The build covers the full embedded-systems stack: a custom STM32 PCB I designed in KiCad and hand-assembled, a laser-cut acrylic chassis I drew up in SolidWorks, two TT gearmotors, and a 2-cell 18650 battery pack.
 
-It works in the sense that everything powers on, the firmware runs, and the motors spin in the right direction when it starts to tip. It balances for a second or two before falling over, so I'd call it a partial success. More on why in the issues section.
+## Current state
+
+Being honest about where I am as of the demo deadline:
+
+| Stage | Status |
+| --- | --- |
+| Schematic + PCB design (KiCad) | Done |
+| PCB fabrication (JLCPCB) | Done |
+| Hand-assembly with hot air + iron | Done |
+| Power rail verification (3.3 V, 5 V, VM) | Done |
+| Chassis design (SolidWorks) | Done |
+| Laser-cut acrylic chassis | Done |
+| Motor brackets (3D printed) | Done |
+| 18650 battery holder mounted | Done |
+| Custom 3D-printed M2 standoffs (workaround) | Done |
+| Official spacers from instructor | Awaiting pickup |
+| Firmware: 3-wheel drive code (instructor-provided `3Wheel_Balance_noEncoder`) | Not yet flashed — planned for demo day |
+| Firmware: 2-wheel balance (IMU + PID) | Stretch goal for after the 3-wheel demo |
+| Encoder integration | Skipped (requires extra soldering, not needed for balance per instructor) |
+| ESP8266 wireless module | Headers populated, module not installed yet |
+
+This document covers the design and assembly work that's complete, the problems I hit and how I solved them, and the plan for finishing the firmware integration on demo day.
 
 ## The chassis
 
@@ -30,6 +51,10 @@ Key dimensions:
 - 4 battery-holder mounting holes on a 10 mm × 30 mm pattern at each end.
 - Motor mount cutouts on the left/right sides.
 - All circular holes Ø3.2 mm for M3 hardware.
+
+### Paper prototype before cutting acrylic
+
+Before any acrylic was cut, the instructor required us to validate fit on paper. I exported the chassis outline at 1:1 scale, auto-printed it on a sheet of paper, and laid the PCB, battery holder, motors, and ball-caster on top to confirm every hole pattern, every cutout, and every clearance matched the real parts. Cheap and fast way to catch a dimension mistake before wasting acrylic. Once the paper version passed, the same DXF went to the laser.
 
 ## The PCB
 
@@ -70,26 +95,36 @@ So I designed a tiny custom spacer and 3D-printed four of them: 2.4mm inner diam
 
 ## Firmware
 
-I used STM32CubeIDE and the ST HAL. CubeMX generated the peripheral init. I program the chip over SWD with an ST-Link.
+I'm not writing firmware from scratch for this build. The instructor provided a working STM32CubeIDE project called `3Wheel_Balance_noEncoder` that targets the same STM32F401RB and uses the same peripheral assignments my board has, so the plan is to import it and flash it.
 
-The peripherals I'm actually using are I²C1 for the IMU (pins PB8/PB9 on the connector, internally PB6/PB7 on the chip), TIM2 channels 1 and 2 for the two motor PWMs, GPIOs for the H-bridge direction pins and standby line, GPIO for the user LED, and SysTick to keep the control loop running at a fixed rate. There's also a WS2812B on TIM5_CH1 that I haven't done much with yet.
+### Flashing path: USB DFU (no ST-Link needed)
 
-The control loop runs at 200 Hz. Every 5ms it does this:
+Because the board has USB-C wired straight to the STM32's USB FS pins, and the F401 has a USB DFU bootloader in ROM, I can flash without external hardware. The board also has a 5V Selector switch (S3) that was added specifically for this — flipping it to USB kills the motor rail so nothing spins while I'm programming.
 
-1. Reads accelerometer and gyro from the IMU
-2. Runs a complementary filter to estimate the tilt angle (`angle = 0.98 * (angle + gyro*dt) + 0.02 * accel_angle`)
-3. Computes a PID output from the angle error (setpoint is 0° — upright)
-4. Clamps the output and sends it as signed PWM to both motors. The sign picks the H-bridge direction, the magnitude sets the duty cycle.
+The procedure:
 
-I'm sending the same command to both motors right now since I only care about balancing, not driving.
+1. Flip **S3 (5V Selector) to USB** — cuts motor power.
+2. Plug USB-C from board to laptop.
+3. Hold **BOOT0 (S4)**, tap **RESET (SW2)**, release BOOT0 → chip is in DFU.
+4. Open **STM32CubeProgrammer**, connection type **USB**, click Connect.
+5. Drag in the `.hex` from the built CubeIDE project, click Download.
+6. Tap RESET to run.
 
-PID gains I ended up using: *fill in your final Kp / Ki / Kd here.*
+### Peripherals the firmware uses
 
-## What worked and what didn't
+I²C1 for the MPU-6050 (with PC13 as interrupt), TIM2 CH1/CH2 for the motor PWMs, GPIOs PA2/PA3/PA6/PA7 for the H-bridge direction pins, PA4 for the driver standby/enable, PB1 for the user LED, and TIM5 CH1 for the WS2812B status RGB.
 
-The board powers on cleanly, the 3.3V rail is steady under load, ST-Link talks to the chip, I can read the IMU's WHO_AM_I register, and both motors spin in both directions when I tell them to. So the electronics are good and the firmware is wired up correctly.
+### 3-wheel vs 2-wheel mode
 
-Where it falls apart is the actual balancing. It holds upright for maybe one to three seconds before the angle runs away and it tips over. It doesn't recover from any kind of push. The reasons are in the problems section below.
+The instructor said the 3-wheel code is the primary demo target — the ball-caster on the rear acts as the third support so the robot just drives around without needing to balance. If that runs cleanly, the stretch is to swap in the 2-wheel balance code, which uses the IMU + a complementary filter + a PID loop on tilt angle. The encoder isn't required for that — the instructor said balance can be done with IMU values alone.
+
+PID gains will be tuned on demo day and filled in here afterward.
+
+## Where I am now
+
+The hardware side is done. Board is designed, fabricated, hand-assembled, and the power rails are all reading correctly under load. The chassis is laser-cut, motors are mounted, battery holder is on top, and the 3D-printed M2 spacer workaround is keeping the PCB lifted off the deck.
+
+What's not done yet: the official spacers from the instructor (picking those up at the demo) and the firmware flash. The firmware is a known quantity — it's the instructor's tested code — so the remaining risk is on the mechanical side (does it physically hold together with the official hardware) and on whether the 2-wheel balance attempt converges if I get that far.
 
 ## Problems and fixes
 
@@ -113,39 +148,29 @@ First time I powered the board the 3.3V rail was bouncing around. The MCU wouldn
 
 **Lesson:** when something doesn't work after assembly, look at the joints under magnification before you start swapping components or rewriting code.
 
-### 3. KiCad version mismatch
+### 3. Anticipated: 2-wheel balance will be hard with these motors
 
-When I tried to reopen my own board file on a different machine, KiCad refused — the file had been saved in version 10 and the other machine had an older release.
+I haven't run the balance code yet, but I expect it to struggle, and it's worth documenting why ahead of time so the troubleshooting on demo day is faster.
 
-**Fix:** installed KiCad 10.0.3 on every machine I touch the project from. Pinned the version in my notes so this doesn't surprise me again.
+Three things are working against me:
 
-**Lesson:** if you're going to use a brand-new KiCad version, write it down somewhere in the repo so future-you knows.
+- **Motor backlash.** TT gearmotors have noticeable slop in the gear train and a deadband at low PWM. Small PID corrections won't move the wheels until the output is big enough to overcome the gearbox — by then the angle has already gone too far. These motors are great for hobby cars and bad for balance.
+- **High center of mass.** The batteries sit on the top deck. Higher CoM is actually easier in theory (longer time constant), but it asks for more torque from the wheels.
+- **Single-loop PID with no velocity feedback.** Without encoders I only have tilt angle to work with. A cascade controller with a position outer loop would be much more robust, but that's out of scope for this build.
 
-### 4. Robot oscillates and falls instead of holding
+**Plan for demo day:** start Kp small, raise it until oscillation begins, then add Kd to damp it. Ki stays 0 unless there's steady-state drift. If it doesn't converge within reasonable tuning effort, the 3-wheel demo is the primary deliverable anyway.
 
-This is the big unresolved one. With the gains I have, the robot tips, overcorrects, and the angle runs away.
+### 4. Anticipated: PID tuning loop will be slow without wireless
 
-There are three things working against me here:
+Every gain change requires editing `main.c`, building, flipping the 5V Selector, plugging USB, DFU-flashing, unplugging, flipping the selector back, and re-trying. That's a couple minutes a try and you need many tries.
 
-- **Motor backlash.** TT gearmotors have a noticeable amount of slop in the gear train and a deadband at low PWM. Small PID corrections just don't move the wheels — by the time the output is big enough to actually do something the angle has already gone too far.
-- **High center of mass.** The batteries are on the top deck. Higher CoM is actually easier to balance in theory (longer time constant), but it asks more torque from the wheels, which my motors don't really have.
-- **Undertuned PID.** Without live tuning I have to re-flash for every gain change. I didn't get nearly enough iterations.
+**Partial mitigation:** define the PID gains as `#define` constants at the top of `main.c` so I only have to touch one block of code per try.
 
-**Partial fix:** raised Kp and Kd until the response was at least visible. It buys me a second or two of upright before it tips.
+**Future fix:** install the ESP8266 module (header is already on the board) and expose PID gains over WiFi. Then I can tune live without re-flashing.
 
-**Real fix (didn't get to):** add wheel encoders for a velocity feedback term, move the batteries to the bottom deck to drop the CoM, and add a UART/Bluetooth channel to change gains live.
+### 5. *Add any other problems you ran into here*
 
-### 5. PID tuning was painfully slow
-
-Related to the above but worth calling out separately. Every gain change meant: edit the code, build, flash, set the robot upright, watch it tip, repeat. Two minutes a try, and you need dozens of tries.
-
-**Fix (partial):** put a `#define` block at the top of `main.c` with the three gains so I only had to touch one spot.
-
-**Real fix (for next time):** expose the gains over UART so I can tweak them from a serial terminal while the robot is running.
-
-### 6. *Add any other problems you ran into here*
-
-Stuff I'd ask yourself: did you have any issues with wire polarity on the motors? IMU axis orientation? Any ground loops or noise on the analog rails? Anything weird with the buttons bouncing? Add those if they happened.
+Things worth documenting if they happened: motor wire polarity reversal, IMU axis orientation issues, ground loops or noise on the 3.3 V rail, button bounce, DRC violations you had to clean up, footprint errors caught during assembly. Photos and screenshots of these are worth a lot of points.
 
 ## If I were doing it again
 
@@ -277,18 +302,12 @@ Rough numbers from what I spent. These are USD and approximate.
 
 > Update these with what you actually paid if you saved receipts (eFatoorah, hint hint).
 
-## Photos and video
+## Photos
 
 **Assembled robot:**
 
 ![Top view](Pictures_Documentation/robot_top.jpg)
 ![Side view](Pictures_Documentation/robot_side.jpg)
-
-**Demo video:** record a 10–20 second phone clip of it trying to balance, upload to YouTube as "Unlisted," and drop the link here:
-
-```
-[Watch the demo](https://youtu.be/YOUR_VIDEO_ID)
-```
 
 ## References and datasheets
 

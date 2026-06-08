@@ -76,6 +76,14 @@ Before cutting any acrylic, I validated the chassis design on paper. The chassis
 
 Two-layer board designed in KiCad 10.
 
+## CAD
+
+Chassis and assembly designed in Onshape.
+
+- Live model: https://cad.onshape.com/documents/071cc8b2e506ffb74c06e22f/w/f090dbc15ae6bdf2458aa0a7/e/28ee7f41fc0bfbd0945cdebd
+- Laser-cut outline: [chassis.dxf](CAD/chassis.dxf)
+- 3D assembly: [robot.step](CAD/robot.step)
+
 ### Schematics
 
 ![Schematic](Pictures_Documentation/schematic.png)
@@ -223,6 +231,7 @@ Pulled from the KiCad project (`FINAL_PHASE_B__1_.kicad_pcb`). STM32F401RBTx is 
 - ESP8266EX — https://www.espressif.com/sites/default/files/documentation/0a-esp8266ex_datasheet_en.pdf
 - KiCad 10 docs — https://docs.kicad.org/
 - STM32CubeIDE — https://www.st.com/en/development-tools/stm32cubeide.html
+
 
 
 ## AI Usage

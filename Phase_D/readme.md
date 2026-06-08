@@ -31,6 +31,98 @@ Being honest about where I am as of the demo deadline:
 
 This document covers the design and assembly work that's complete, the problems I hit and how I solved them, and the plan for finishing the firmware integration on demo day.
 
+## Design Stage
+
+Following the format from the engredu reference article, the design stage starts with a block diagram of what the system needs, then narrows down to the MCU and peripheral choices.
+
+### Block diagram
+
+At a minimum the robot needs two motors, a driver to control them, an IMU for tilt sensing, and a power path from the battery to logic and motor rails. I also added an encoder header, a magnetic angle sensor header, a WiFi module connector, and a USB-C port for power and programming — so the same board can scale from a basic 3-wheel demo up to a full 2-wheel balancing platform with wireless tuning.
+
+```mermaid
+flowchart LR
+    BAT[2x 18650 Li-ion<br/>~7.4V VM]
+    LDO5[LD1117S50<br/>5V LDO]
+    LDO3[LD1117S33<br/>3.3V LDO]
+    SEL[5V Selector<br/>S3]
+    USB[USB-C<br/>+ USBLC6 ESD]
+    MCU[STM32F401RBTx<br/>84 MHz Cortex-M4]
+    DRV[TB6612FNG<br/>Dual H-bridge]
+    M1[Motor L]
+    M2[Motor R]
+    IMU[MPU-6050<br/>I2C1]
+    ENC[Encoder header<br/>quad PB6/PB7]
+    MT[MT6701 header<br/>I2C3]
+    ESP[ESP8266 header<br/>USART1]
+    RGB[WS2812B<br/>TIM5 CH1]
+
+    BAT --> SEL
+    USB --> SEL
+    SEL --> LDO5 --> LDO3 --> MCU
+    LDO5 --> DRV
+    BAT --> DRV
+    DRV --> M1
+    DRV --> M2
+    MCU -- I2C --> IMU
+    MCU -- GPIO/PWM --> DRV
+    MCU -- I2C3 --> MT
+    MCU -- UART --> ESP
+    MCU -- PWM --> RGB
+    MCU -- TIM in --> ENC
+    USB -- USB FS --> MCU
+```
+
+### MCU choice
+
+The microcontroller is an [STM32F401RBTx](https://www.st.com/en/microcontrollers-microprocessors/stm32f401rb.html), 64-pin LQFP, 84 MHz Cortex-M4. Picked for:
+
+- Enough pins (64) to route everything: two I²C buses, a UART for the ESP, USB FS, a couple of PWM timer channels, four direction GPIOs for the H-bridge, encoder inputs, plus debug.
+- Native USB DFU bootloader in ROM → I can flash over USB-C without an ST-Link.
+- Plenty of headroom for a 200 Hz IMU + PID loop with room to grow.
+- Same chip family as the dev boards I'd used in earlier labs, so the HAL and toolchain are familiar.
+
+I considered the STM32F103 (cheaper) but ruled it out because the F401 has the USB DFU bootloader built in and an FPU, which makes the floating-point math in the complementary filter cheap.
+
+### Peripheral selection
+
+Pins were picked so each peripheral lands on a hardware block that supports its function natively — no bit-banging:
+
+| Peripheral | Used for | Pins |
+| --- | --- | --- |
+| I²C1 | MPU-6050 IMU | PB6 SCL, PB7 SDA |
+| I²C3 | MT6701 magnetic encoder (optional) | PA8 SCL, PC9 SDA |
+| TIM2 CH1/CH2 | Motor PWM (L + R) | PA15, PB3 |
+| TIM5 CH1 | WS2812B addressable LED | PA0 |
+| USART1 | ESP8266 link | PA9 TX, PA10 RX |
+| USB FS | Flashing + future host comms | PA11 D−, PA12 D+ |
+| GPIO | H-bridge direction + standby | PA2, PA3, PA4, PA6, PA7 |
+| SWD | Debug header J1 | PA13 SWDIO, PA14 SWCLK |
+
+The full pin-to-net mapping pulled straight from the KiCad project is in the [Pinout](#pinout) section further down.
+
+### Code diagram
+
+This is what the firmware structure looks like for the balancing case (the 3-wheel demo skips the filter and PID and just drives the motors from UART commands).
+
+```mermaid
+flowchart TD
+    SYS[SysTick<br/>200 Hz tick]
+    READ[Read MPU-6050<br/>accel + gyro over I2C1]
+    FILT[Complementary filter<br/>angle = 0.98·gyro + 0.02·accel]
+    PID[PID controller<br/>error = setpoint − angle]
+    CLAMP[Clamp + scale to PWM]
+    DIR[Set H-bridge direction<br/>via GPIO]
+    PWM[Write PWM duty<br/>TIM2 CH1/CH2]
+    ESP_RX[UART RX from ESP8266<br/>tuning + steering]
+    LED[Status LED<br/>WS2812B / user LED]
+
+    SYS --> READ --> FILT --> PID --> CLAMP
+    CLAMP --> DIR
+    CLAMP --> PWM
+    ESP_RX --> PID
+    SYS --> LED
+```
+
 ## The chassis
 
 I designed the chassis in two tiers from 3mm clear acrylic so I could fit everything compactly. The bottom layer holds the PCB and the two motors. The top layer holds the battery pack. There's a small ball-caster looking piece at the back that I'm using more as a counterweight than as an actual third wheel.
@@ -56,12 +148,16 @@ Key dimensions:
 
 Before any acrylic was cut, the instructor required us to validate fit on paper. I exported the chassis outline at 1:1 scale, auto-printed it on a sheet of paper, and laid the PCB, battery holder, motors, and ball-caster on top to confirm every hole pattern, every cutout, and every clearance matched the real parts. Cheap and fast way to catch a dimension mistake before wasting acrylic. Once the paper version passed, the same DXF went to the laser.
 
+Instructor's chassis validation video: https://youtu.be/5C3L4LZVVkk
+
 ## The PCB
 
 Two-layer board, designed in KiCad 10. I assembled it by hand with hot air and a soldering iron, which meant a few joints needed rework after the first power-on (you can see the touched-up spots in the side photo).
 
 ![Schematic](Pictures_Documentation/schematic.png)
 ![PCB layout](Pictures_Documentation/pcb_layout.png)
+![PCB 3D render — front](Pictures_Documentation/pcb_3d_front.png)
+![PCB 3D render — back](Pictures_Documentation/pcb_3d_back.png)
 
 The main components:
 
@@ -97,6 +193,9 @@ So I designed a tiny custom spacer and 3D-printed four of them: 2.4mm inner diam
 
 I'm not writing firmware from scratch for this build. The instructor provided a working STM32CubeIDE project called `3Wheel_Balance_noEncoder` that targets the same STM32F401RB and uses the same peripheral assignments my board has, so the plan is to import it and flash it.
 
+- **Instructor's walkthrough video** (project import + USB flashing): https://youtu.be/xApW40-5goQ
+- **Project files:** `Phase_D/firmware/3Wheel_Balance_noEncoder/` *(add the unzipped project here once imported)*
+
 ### Flashing path: USB DFU (no ST-Link needed)
 
 Because the board has USB-C wired straight to the STM32's USB FS pins, and the F401 has a USB DFU bootloader in ROM, I can flash without external hardware. The board also has a 5V Selector switch (S3) that was added specifically for this — flipping it to USB kills the motor rail so nothing spins while I'm programming.
@@ -119,6 +218,36 @@ I²C1 for the MPU-6050 (with PC13 as interrupt), TIM2 CH1/CH2 for the motor PWMs
 The instructor said the 3-wheel code is the primary demo target — the ball-caster on the rear acts as the third support so the robot just drives around without needing to balance. If that runs cleanly, the stretch is to swap in the 2-wheel balance code, which uses the IMU + a complementary filter + a PID loop on tilt angle. The encoder isn't required for that — the instructor said balance can be done with IMU values alone.
 
 PID gains will be tuned on demo day and filled in here afterward.
+
+## Communications (planned)
+
+The ESP8266 module isn't installed on my board yet (header is populated, module pending), so the wireless control path is documented here as planned rather than working.
+
+When the ESP is installed, it acts as a Wi-Fi access point and a bridge between the user's browser and the STM32 over UART (USART1).
+
+Command protocol from ESP8266 → STM32:
+
+| Char | Action |
+| --- | --- |
+| `w` | Move forward |
+| `s` | Move backward |
+| `a` | Turn left |
+| `d` | Turn right |
+| `x` | Stop |
+
+Telemetry from STM32 → ESP8266:
+
+```
+$speed,roll,pitch,counter\n
+```
+
+## Robot interaction (planned)
+
+To control the robot once the ESP8266 is installed:
+
+1. On a phone or laptop, open Wi-Fi settings and connect to the access point `3Wheel Remote Controller`.
+2. Open a browser and go to `192.168.4.1`.
+3. The web GUI loads — arrow keys drive the robot, and the page shows live telemetry (encoder counts, roll, pitch).
 
 ## Where I am now
 
@@ -311,6 +440,17 @@ Rough numbers from what I spent. These are USD and approximate.
 
 ## References and datasheets
 
+**Course references**
+- engredu — 2-Wheel Balance Robot (instructor's writeup, used as report guideline): http://engredu.com/2026/05/01/2-wheel-balance-robot/
+- Instructor video — chassis paper validation: https://youtu.be/5C3L4LZVVkk
+- Instructor video — STM32CubeIDE import + USB flashing: https://youtu.be/xApW40-5goQ
+
+**Interactive BOM**
+- Open in browser: [iBOM](https://htmlpreview.github.io/?https://github.com/AMB0000/EmbeddedSystems/blob/main/Phase_D/iBOM/ibom.html)
+- Source file: [Phase_D/iBOM/ibom.html](iBOM/ibom.html)
+
+**Datasheets and tools**
+
 - STM32F401xB/xC datasheet — https://www.st.com/resource/en/datasheet/stm32f401rb.pdf
 - STM32F401 reference manual (RM0368) — https://www.st.com/resource/en/reference_manual/rm0368-stm32f401xbc-and-stm32f401xde-advanced-armbased-32bit-mcus-stmicroelectronics.pdf
 - TB6612FNG dual motor driver — https://www.sparkfun.com/datasheets/Robotics/TB6612FNG.pdf
@@ -325,17 +465,26 @@ Rough numbers from what I spent. These are USD and approximate.
 - STM32CubeIDE — https://www.st.com/en/development-tools/stm32cubeide.html
 - Phil's Lab (background on STM32 + PID for balancing) — https://www.youtube.com/@PhilsLab
 
-## Repo layout
+## GitHub Repository
+
+Direct links to the relevant folders in this repo:
+
+- [KiCad project (schematic, PCB, gerbers)](../Phase_B_Final_Board/FINAL_PHASE_B)
+- [Phase D folder (this report + supporting files)](.)
+- [Interactive BOM](iBOM/ibom.html)
+- [Pictures and screenshots](Pictures_Documentation)
+- Firmware: instructor's `3Wheel_Balance_noEncoder` — see [Firmware_Tutorials](Firmware_Tutorials) for the import/flash walkthrough
+
+Folder structure:
 
 ```
 EmbeddedSystems/
 ├── Phase_B_Final_Board/FINAL_PHASE_B/   KiCad project (schematic, PCB, BOM)
-├── Final-Project/
-│   ├── PHASE_D_DOCUMENTATION.md         this doc
-│   ├── firmware/                        STM32CubeIDE project
-│   ├── mechanical/                      chassis DXF + dimensioned drawing
-│   ├── hardware/                        3D-printed spacer STL, motor brackets
-│   └── Pictures_Documentation/                          schematic, PCB layout, chassis, robot photos
+├── Phase_D/
+│   ├── README.md                        this report
+│   ├── Pictures_Documentation/          schematic, PCB layout, 3D renders, chassis, photos
+│   ├── iBOM/                            interactive BOM (open ibom.html in browser)
+│   └── Firmware_Tutorials/              instructor video links + flashing notes
 ├── DMA_STM32/                           DMA experiments
 ├── Lab_01/                              early labs
 ├── All_Labs_CHALLENGE_COMPLETED/        challenge labs

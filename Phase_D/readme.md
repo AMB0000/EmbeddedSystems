@@ -20,9 +20,9 @@ Everything is held together with M2 hardware on the PCB and M3 (3.2mm clearance)
 
 I drew the chassis up in SolidWorks before sending the DXF to the laser. The dimensioned drawing is in `Final-Project/mechanical/`:
 
-![Chassis outline](images/chassis_outline.png)
+![Chassis outline](Pictures_Documentation/chassis_outline.png)
 
-![Chassis dimensions](images/chassis_dimensions.png)
+![Chassis dimensions](Pictures_Documentation/chassis_dimensions.png)
 
 Key dimensions:
 - Overall: roughly 140 mm × 70 mm with a notch at the front for the motor bracket clearance.
@@ -35,8 +35,8 @@ Key dimensions:
 
 Two-layer board, designed in KiCad 10. I assembled it by hand with hot air and a soldering iron, which meant a few joints needed rework after the first power-on (you can see the touched-up spots in the side photo).
 
-![Schematic](images/schematic.png)
-![PCB layout](images/pcb_layout.png)
+![Schematic](Pictures_Documentation/schematic.png)
+![PCB layout](Pictures_Documentation/pcb_layout.png)
 
 The main components:
 
@@ -281,8 +281,8 @@ Rough numbers from what I spent. These are USD and approximate.
 
 **Assembled robot:**
 
-![Top view](images/robot_top.jpg)
-![Side view](images/robot_side.jpg)
+![Top view](Pictures_Documentation/robot_top.jpg)
+![Side view](Pictures_Documentation/robot_side.jpg)
 
 **Demo video:** record a 10–20 second phone clip of it trying to balance, upload to YouTube as "Unlisted," and drop the link here:
 
@@ -316,7 +316,7 @@ EmbeddedSystems/
 │   ├── firmware/                        STM32CubeIDE project
 │   ├── mechanical/                      chassis DXF + dimensioned drawing
 │   ├── hardware/                        3D-printed spacer STL, motor brackets
-│   └── images/                          schematic, PCB layout, chassis, robot photos
+│   └── Pictures_Documentation/                          schematic, PCB layout, chassis, robot photos
 ├── DMA_STM32/                           DMA experiments
 ├── Lab_01/                              early labs
 ├── All_Labs_CHALLENGE_COMPLETED/        challenge labs

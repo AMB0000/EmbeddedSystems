@@ -10,10 +10,6 @@ Reference material the instructor provided for the Phase D firmware. Everything 
 - **Chassis paper validation** — how to validate the laser-cut chassis design on paper before cutting acrylic.
   https://youtu.be/5C3L4LZVVkk
 
-## Reference article
-
-- **engredu — 2-Wheel Balance Robot.** Instructor's writeup of the full project, used as the guideline for this Phase D report.
-  http://engredu.com/2026/05/01/2-wheel-balance-robot/
 
 ## Flashing procedure (summary)
 

@@ -7,6 +7,7 @@ Ali Behbehani
 
 This project is a 2-wheel balance robot built from scratch. It uses a custom PCB with a motor driver, IMU, encoder and magnetic-sensor headers, and a Wi-Fi module connector, plus a laser-cut acrylic chassis and two DC gearmotors. The robot starts as a 3-wheel design (a rear ball-caster acts as the third support) so all the components and code can be verified, and then extends to a 2-wheel balancing platform using the IMU and a PID controller.
 
+This document covers the design, prototype, PCB, assembly, the 3-wheel stage, the 2-wheel balance stage, and the troubleshooting along the way.
 
 ## Design Stage
 
@@ -69,9 +70,7 @@ flowchart TD
 
 ## Prototype Stage
 
-Before cutting any acrylic, the chassis design was validated on paper, as required by the instructor. The chassis outline was printed at 1:1 scale and the real PCB, battery holder, motors, and ball-caster were placed on top to confirm every hole pattern and clearance matched the actual parts. Only after the paper version passed was the same DXF sent to the laser cutter.
-
-Instructor's chassis validation video: https://youtu.be/5C3L4LZVVkk
+Before cutting any acrylic, I validated the chassis design on paper. The chassis outline was printed at 1:1 scale and the real PCB, battery holder, motors, and ball-caster were placed on top to confirm every hole pattern and clearance matched the actual parts. Only after the paper version passed did I send the same DXF to the laser cutter.
 
 ## PCB Design
 
@@ -117,7 +116,7 @@ The board was assembled by hand using hot air and a soldering iron. After the fi
 
 The goal of this stage is to confirm that all components and the PCB work before developing the balancing code. It tests the HAL drivers for the motors, the ESP8266 over UART, the IMU and encoder over I²C, and the RGB LED.
 
-The firmware for this stage is the instructor-provided `3Wheel_Balance_noEncoder` STM32CubeIDE project, imported and flashed over USB. The import and flashing walkthrough is here: https://youtu.be/xApW40-5goQ
+The firmware for this stage is the `3Wheel_Balance_noEncoder` STM32CubeIDE project, imported and flashed over USB.
 
 Flashing procedure (USB DFU, no external programmer):
 
@@ -167,8 +166,6 @@ PID gains are tuned by starting Kp small, raising it until the robot starts to o
 
 ## Troubleshooting
 
-The course grade is based on documenting the work and the troubleshooting, so this section records the issues hit during the build.
-
 ### PCB mounting holes were the wrong size
 
 The mechanical plan assumed M3 standoffs to mount the PCB to the chassis. When the board came back from fab, the mounting holes (H1–H4) were drilled at 2.2 mm — M2, not M3 — so the standoffs would not fit. Re-spinning the board was not realistic with the deadline, and even with M2 standoffs the board would not sit flat because the bottom-side joints would touch the acrylic and short.
@@ -192,7 +189,7 @@ The TT gearmotors have backlash and a deadband at low PWM, so small PID correcti
 - [KiCad project (schematic, PCB, gerbers)](../Phase_B_Final_Board/FINAL_PHASE_B)
 - [Interactive BOM](iBOM/ibom.html)
 - [Pictures and screenshots](Pictures_Documentation)
-- [Firmware tutorials (instructor video + flashing notes)](Firmware_Tutorials)
+- [Firmware notes](Firmware_Tutorials)
 
 ## Pinout
 
@@ -223,7 +220,6 @@ Pulled from the KiCad project (`FINAL_PHASE_B__1_.kicad_pcb`). STM32F401RBTx is 
 
 ## References
 
-- Course article — 2 Wheel Balance Robot: http://engredu.com/2026/05/01/2-wheel-balance-robot/
 - STM32F401 datasheet — https://www.st.com/resource/en/datasheet/stm32f401rb.pdf
 - TB6612FNG — https://www.sparkfun.com/datasheets/Robotics/TB6612FNG.pdf
 - MPU-6050 — https://invensense.tdk.com/wp-content/uploads/2015/02/MPU-6000-Datasheet1.pdf

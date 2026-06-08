@@ -7,7 +7,6 @@ Ali Behbehani
 
 This project is a 2-wheel balance robot built from scratch. It uses a custom PCB with a motor driver, IMU, encoder and magnetic-sensor headers, and a Wi-Fi module connector, plus a laser-cut acrylic chassis and two DC gearmotors. The robot starts as a 3-wheel design (a rear ball-caster acts as the third support) so all the components and code can be verified, and then extends to a 2-wheel balancing platform using the IMU and a PID controller.
 
-This document follows the structure of the [course reference article](http://engredu.com/2026/05/01/2-wheel-balance-robot/) and covers the design, prototype, PCB, assembly, the 3-wheel stage, the 2-wheel balance stage, and the troubleshooting done along the way.
 
 ## Design Stage
 

@@ -1,9 +1,7 @@
 # Phase D — Final Documentation
 
 **Project:** Two-wheel self-balancing robot
-
 **Class:** Embedded Systems, University of Denver
-
 **Author:** Ali Behbehani
 
 ## What I built
@@ -18,31 +16,49 @@ I designed the chassis in two tiers from 3mm clear acrylic so I could fit everyt
 
 The motors are TT gearmotors with the standard yellow 65mm wheels. They sit in 3D-printed brackets that screw to the bottom deck.
 
-Everything is held together with M2 hardware.
+Everything is held together with M2 hardware on the PCB and M3 (3.2mm clearance) on the chassis itself.
+
+I drew the chassis up in SolidWorks before sending the DXF to the laser. The dimensioned drawing is in `Final-Project/mechanical/`:
+
+![Chassis outline](images/chassis_outline.png)
+
+![Chassis dimensions](images/chassis_dimensions.png)
+
+Key dimensions:
+- Overall: roughly 140 mm × 70 mm with a notch at the front for the motor bracket clearance.
+- 4 PCB mounting holes on a 23.5 mm × 40.5 mm rectangle pattern.
+- 4 battery-holder mounting holes on a 10 mm × 30 mm pattern at each end.
+- Motor mount cutouts on the left/right sides.
+- All circular holes Ø3.2 mm for M3 hardware.
 
 ## The PCB
 
 Two-layer board, designed in KiCad 10. I assembled it by hand with hot air and a soldering iron, which meant a few joints needed rework after the first power-on (you can see the touched-up spots in the side photo).
 
+![Schematic](images/schematic.png)
+![PCB layout](images/pcb_layout.png)
+
 The main components:
 
 - **MCU:** STM32F401RBTx — 84 MHz Cortex-M4, LQFP-64. Programmed over SWD with an ST-Link.
-- **Motor driver:** TB6612FNG — dual H-bridge, up to 1.2 A per channel, separate PWM and direction pins.
-- **IMU:** MPU-6050 on a breakout board, plugged into the on-board connector (CONN_MPU6050). I²C1 at the default 0x68 address. There's also an interrupt line wired back to PC13.
+- **Motor driver:** TB6612FNG — dual H-bridge, up to 1.2 A average / 3.2 A peak per channel, separate PWM and direction pins.
+- **IMU:** MPU-6050 on a breakout board, plugged into the on-board connector. I²C1 at the default 0x68 address. There's also an interrupt line wired back to PC13.
 - **Regulators:** LD1117S33TR (3.3 V) and LD1117S50TR (5 V) LDOs in SOT-223.
-- **Clock:** 16 MHz crystal (Y3) on OSC_IN/OSC_OUT.
-- **USB-C:** USB 2.0 receptacle with a USBLC6-2SC6 for ESD protection. USB DM/DP are wired to the STM32's USB FS pins so the board can be powered or talked to over USB-C.
-- **Status LEDs:** USB, 3V3, 5V, user LED, plus a WS2812B addressable LED on a TIM5 PWM pin.
-- **Protection:** PTC fuse (F1) on the input rail.
-- **Buttons:** reset (SW2), boot0, regulator switch.
+- **Clock:** 16 MHz crystal (Y3) on OSC_IN/OSC_OUT, with 22 pF load caps.
+- **USB-C:** USB 2.0 receptacle with a USBLC6-2SC6 for ESD protection and series 22Ω resistors on D+/D−. USB DM/DP go to the STM32's USB FS pins so the board can be powered or talked to over USB-C.
+- **5V Selector switch (S3):** lets me pick whether the 5V rail comes from the battery (VM) or from USB. Setting it to USB cuts motor power so I can flash and debug safely without the wheels spinning.
+- **Status LEDs:** USB, 3V3, 5V, user LED, plus a WS2812B addressable RGB LED on a TIM5 PWM pin for fancier status indication.
+- **Protection:** PTC fuse (F1) on the USB input rail.
+- **Buttons:** reset (SW2) and boot0 (S4).
+- **SWD header (J1):** 4-pin Conn_01x04 for ST-Link (SWDIO, SWCLK, GND, 3.3V).
 
 The board also has connectors I designed in but didn't end up using for this build:
 
-- **ENCODER_CONN** — wheel encoder header (quadrature on PB6/PB7). My TT gearmotors don't have encoders, so this never got hooked up.
-- **MT6701_CONN** — connector for an MT6701 magnetic angle sensor on I²C3.
-- **ESP_Conn** — UART link to an ESP32 (USART1 TX/RX) for future wireless telemetry.
+- **ENCODER_CONN (J8)** — 4-pin header for quadrature wheel encoders (ENC_A on PB7, ENC_B on PB6, 3.3V, GND). My TT gearmotors don't have encoders, so this never got hooked up.
+- **MT6701_CONN (J9)** — 5-pin header for an MT6701 magnetic angle sensor on I²C3 plus a PWM line.
+- **ESP_Conn (J4)** — header for an **ESP8266** WiFi module on USART1 TX/RX. The silkscreen even has a "WiFi Antenna" cutout reminder. Plan was wireless telemetry/PID tuning, but it's parked for next iteration.
 
-Power: two 18650 Li-ions in series, about 7.4 V nominal, into the battery JST. From there the 5 V LDO feeds the motor driver's logic side and the 3.3 V LDO feeds the MCU and IMU. The motors run directly off the battery rail through the H-bridge. No on-board charger — cells are charged externally.
+Power: two 18650 Li-ions in series, about 7.4 V nominal, into the battery JST. From there VM feeds the 5 V LDO (which also feeds the motor driver's logic side), and the 5 V rail feeds the 3.3 V LDO which powers the MCU and IMU. The motors run directly off the battery rail through the H-bridge. No on-board charger — cells are charged externally.
 
 ## The spacer story
 
@@ -261,44 +277,12 @@ Rough numbers from what I spent. These are USD and approximate.
 
 > Update these with what you actually paid if you saved receipts (eFatoorah, hint hint).
 
-## KiCad screenshots
-
-Drop these in `Final-Project/images/` and they'll render below. The image names are just suggestions.
-
-**Schematic:**
-```
-![Schematic](images/schematic.png)
-```
-
-**PCB layout (top copper):**
-```
-![PCB top](images/pcb_top.png)
-```
-
-**PCB layout (bottom copper):**
-```
-![PCB bottom](images/pcb_bottom.png)
-```
-
-**3D render (front):**
-```
-![3D front](images/pcb_3d_front.png)
-```
-
-**3D render (back):**
-```
-![3D back](images/pcb_3d_back.png)
-```
-
-> In KiCad: schematic → File → Export → SVG/PNG. PCB → File → Export → SVG, or View → 3D Viewer → File → Export current view for renders.
-
 ## Photos and video
 
 **Assembled robot:**
-```
+
 ![Top view](images/robot_top.jpg)
 ![Side view](images/robot_side.jpg)
-```
 
 **Demo video:** record a 10–20 second phone clip of it trying to balance, upload to YouTube as "Unlisted," and drop the link here:
 
@@ -315,6 +299,7 @@ Drop these in `Final-Project/images/` and they'll render below. The image names 
 - LD1117 LDO datasheet — https://www.st.com/resource/en/datasheet/ld1117.pdf
 - USBLC6-2SC6 ESD protection — https://www.st.com/resource/en/datasheet/usblc6-2.pdf
 - WS2812B addressable LED — https://cdn-shop.adafruit.com/datasheets/WS2812B.pdf
+- ESP8266EX datasheet — https://www.espressif.com/sites/default/files/documentation/0a-esp8266ex_datasheet_en.pdf
 - TT gearmotor specs (Adafruit) — https://www.adafruit.com/product/3777
 - ST-Link V2 user manual — https://www.st.com/resource/en/user_manual/cd00262073.pdf
 - KiCad 10 docs — https://docs.kicad.org/
@@ -326,8 +311,12 @@ Drop these in `Final-Project/images/` and they'll render below. The image names 
 ```
 EmbeddedSystems/
 ├── Phase_B_Final_Board/FINAL_PHASE_B/   KiCad project (schematic, PCB, BOM)
-├── Final-Project/                       firmware, CAD, this doc, images
-│   └── images/                          screenshots and photos
+├── Final-Project/
+│   ├── PHASE_D_DOCUMENTATION.md         this doc
+│   ├── firmware/                        STM32CubeIDE project
+│   ├── mechanical/                      chassis DXF + dimensioned drawing
+│   ├── hardware/                        3D-printed spacer STL, motor brackets
+│   └── images/                          schematic, PCB layout, chassis, robot photos
 ├── DMA_STM32/                           DMA experiments
 ├── Lab_01/                              early labs
 ├── All_Labs_CHALLENGE_COMPLETED/        challenge labs
